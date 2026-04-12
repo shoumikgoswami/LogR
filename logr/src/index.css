@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #0F0F0F;
+  --color-surface: #1A1A1A;
+  --color-border: #2A2A2A;
+  --color-accent: #22D3EE;
+  --color-muted: #6B7280;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #e5e7eb;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

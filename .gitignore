@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+logr/node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+logr/dist/
+logr/src-tauri/target/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# Tauri
+logr/src-tauri/target/
+logr/src-tauri/WixTools/
+
+# Local env / secrets
+.env
+.env.local
+*.local
+
+# OS
+Thumbs.db
+desktop.ini
