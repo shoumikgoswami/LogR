@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time;
 
-use super::{context::get_app_context, screenshot::describe_screen, Collector, RawEvent};
+use super::{context::get_app_context, screenshot::describe_screen_for_config, Collector, RawEvent};
 use crate::session::types::EventType;
 
 /// How long a title must be visible before we emit an event for it.
@@ -237,18 +237,15 @@ async fn collect_acc(pid: u64, app: &str) -> Option<String> {
         .flatten()
 }
 
-/// Spawns a vision task, re-reading config so model changes in Settings take
-/// effect immediately without restarting the app.
+/// Spawns a vision task, re-reading config so provider/model changes in Settings
+/// take effect immediately without restarting the app.
 fn spawn_vision(_ollama_url: &str, _vision_model: &str) -> Option<JoinHandle<Option<String>>> {
-    // Always read the latest config so Settings changes are picked up live.
     let config = crate::commands::load_config_sync();
-    let model = config.vision_model;
-    if model.trim().is_empty() {
+    if config.vision_model.trim().is_empty() {
         return None;
     }
-    let url = config.ollama_url;
     Some(tokio::spawn(async move {
-        describe_screen(&url, &model).await
+        describe_screen_for_config(config).await
     }))
 }
 

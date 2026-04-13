@@ -144,43 +144,39 @@ pub async fn check_ollama(url: String) -> Result<bool, String> {
     Ok(resp.map(|r| r.status().is_success()).unwrap_or(false))
 }
 
-/// Capture the screen right now and ask Ollama to describe it.
-/// Returns the description on success, or a detailed error string.
+/// Capture the screen right now and describe it using the configured vision provider.
+/// Reads config directly so it always uses the currently saved settings.
 #[tauri::command]
-pub async fn test_vision(url: String, model: String) -> Result<String, String> {
+pub async fn test_vision() -> Result<String, String> {
     use base64::Engine;
-    use crate::collectors::screenshot::ask_vision_with_error;
+    use crate::collectors::screenshot::{
+        capture_primary_screen, ask_vision_ollama_with_error, ask_vision_openrouter_with_error,
+    };
 
-    if model.trim().is_empty() {
-        return Err("No vision model configured".into());
+    let config = load_config_sync();
+
+    if config.vision_model.trim().is_empty() {
+        return Err("No vision model configured — set one in Settings and save first.".into());
     }
 
     // Capture + encode
-    let jpeg_bytes = tokio::task::spawn_blocking(|| {
-        use image::{DynamicImage, ImageFormat};
-        use xcap::Monitor;
-        let monitors = Monitor::all().map_err(|e| format!("Monitor::all() failed: {e}"))?;
-        let monitor = monitors.into_iter().find(|m| m.is_primary().unwrap_or(false))
-            .ok_or_else(|| "No primary monitor found".to_string())?;
-        let rgba = monitor.capture_image().map_err(|e| format!("capture_image() failed: {e}"))?;
-        let dynamic = DynamicImage::ImageRgba8(rgba);
-        let (w, h) = (dynamic.width(), dynamic.height());
-        let tw = 1280u32;
-        let th = (h as f32 * (tw as f32 / w as f32)) as u32;
-        let resized = dynamic.resize(tw, th, image::imageops::FilterType::Triangle);
-        let mut buf = std::io::Cursor::new(Vec::new());
-        resized.write_to(&mut buf, ImageFormat::Jpeg).map_err(|e| format!("JPEG encode failed: {e}"))?;
-        Ok::<Vec<u8>, String>(buf.into_inner())
-    }).await
-    .map_err(|e| format!("spawn_blocking panic: {e}"))??;
+    let jpeg_bytes = tokio::task::spawn_blocking(capture_primary_screen)
+        .await
+        .map_err(|e| format!("spawn_blocking panic: {e}"))?
+        .ok_or_else(|| "Screen capture failed — no primary monitor found".to_string())?;
 
     let kb = jpeg_bytes.len() / 1024;
     let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
 
-    // Call Ollama — surface the real error if it fails
-    match ask_vision_with_error(&url, &model, &b64).await {
+    let result = if config.provider == "openrouter" {
+        ask_vision_openrouter_with_error(&config.openrouter_api_key, &config.vision_model, &b64).await
+    } else {
+        ask_vision_ollama_with_error(&config.ollama_url, &config.vision_model, &b64).await
+    };
+
+    match result {
         Ok(desc) => Ok(format!("screenshot={}KB — {}", kb, desc)),
-        Err(e) => Err(format!("screenshot={}KB captured, but: {}", kb, e)),
+        Err(e)   => Err(format!("screenshot={}KB captured, but: {}", kb, e)),
     }
 }
 

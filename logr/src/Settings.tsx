@@ -153,7 +153,50 @@ function VisionModelPicker({
   );
 }
 
-function VisionTest({ url, model }: { url: string; model: string }) {
+// ── OpenRouter vision model picker ────────────────────────────────────────────
+
+// Multimodal models available on OpenRouter that support image input
+const OR_VISION_MODELS = [
+  { id: "google/gemini-flash-1.5",              label: "Gemini Flash 1.5 — fast, cheap, multimodal" },
+  { id: "google/gemini-2.0-flash-001",          label: "Gemini 2.0 Flash — fast, multimodal" },
+  { id: "google/gemini-2.5-pro-preview-03-25",  label: "Gemini 2.5 Pro — powerful, multimodal" },
+  { id: "anthropic/claude-3.5-haiku",           label: "Claude 3.5 Haiku — fast, multimodal" },
+  { id: "anthropic/claude-3.5-sonnet",          label: "Claude 3.5 Sonnet — accurate, multimodal" },
+  { id: "openai/gpt-4o-mini",                   label: "GPT-4o Mini — fast, multimodal" },
+  { id: "openai/gpt-4o",                        label: "GPT-4o — accurate, multimodal" },
+  { id: "meta-llama/llama-3.2-11b-vision-instruct", label: "Llama 3.2 Vision 11B — open source" },
+  { id: "mistralai/pixtral-12b",                label: "Pixtral 12B — Mistral vision model" },
+];
+
+function OrVisionModelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ ...inputStyle, cursor: "pointer" }}>
+        <option value="">Disabled (no screenshots)</option>
+        <optgroup label="— Multimodal models —">
+          {OR_VISION_MODELS.map((m) => (
+            <option key={m.id} value={m.id}>{m.id} — {m.label.split(" — ")[1]}</option>
+          ))}
+        </optgroup>
+        {/* keep a saved value visible even if not in the list */}
+        {value && !OR_VISION_MODELS.some((m) => m.id === value) && (
+          <option value={value}>{value}</option>
+        )}
+      </select>
+      <input
+        style={{ ...inputStyle, fontSize: 12 }}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="or type any multimodal model ID…"
+      />
+    </div>
+  );
+}
+
+function VisionTest() {
   const [result, setResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -161,7 +204,7 @@ function VisionTest({ url, model }: { url: string; model: string }) {
     setRunning(true);
     setResult(null);
     try {
-      const desc = await invoke<string>("test_vision", { url, model });
+      const desc = await invoke<string>("test_vision");
       setResult("✓ " + desc);
     } catch (e: unknown) {
       setResult("✗ " + String(e));
@@ -556,41 +599,34 @@ export default function Settings() {
           )}
         </Section>
 
-        {/* Vision — always available; runs locally via Ollama regardless of provider */}
+        {/* Vision — provider-aware */}
         <Section title="Vision (screenshot descriptions)">
-          {provider === "openrouter" && (
-            <div className="flex items-start gap-2 px-2 py-1.5 rounded"
-              style={{ background: "#0F0F0F", border: "1px solid var(--color-border)" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                Vision always runs <strong style={{ color: "#e5e7eb" }}>locally via Ollama</strong> — screenshots are never sent to OpenRouter.
+          {provider === "ollama" ? (
+            <Field label="Vision model">
+              <VisionModelPicker
+                value={visionModel}
+                onChange={setVisionModel}
+                localModels={availableModels}
+                modelsLoading={modelsLoading}
+              />
+              <span className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+                {visionModel
+                  ? `Screenshots sent to local Ollama (${visionModel}) — never stored on disk.`
+                  : "Disabled — no screenshots will be taken."}
               </span>
-            </div>
-          )}
-          {provider === "openrouter" && (
-            <Field label="Ollama URL (for vision only)">
-              <input style={inputStyle} value={ollamaUrl}
-                onChange={(e) => { setOllamaUrl(e.target.value); setOllamaStatus("idle"); }}
-                placeholder="http://localhost:11434" />
+              {visionModel && <VisionTest />}
+            </Field>
+          ) : (
+            <Field label="Vision model">
+              <OrVisionModelPicker value={visionModel} onChange={setVisionModel} />
+              <span className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+                {visionModel
+                  ? `Screenshots sent to OpenRouter (${visionModel}) — images are never stored on disk.`
+                  : "Disabled — no screenshots will be taken."}
+              </span>
+              {visionModel && <VisionTest />}
             </Field>
           )}
-          <Field label="Vision model">
-            <VisionModelPicker
-              value={visionModel}
-              onChange={setVisionModel}
-              localModels={availableModels}
-              modelsLoading={modelsLoading}
-            />
-            <span className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-              {visionModel
-                ? `Screenshots will be described by ${visionModel} — images are never saved to disk.`
-                : "Disabled — no screenshots will be taken."}
-            </span>
-            {visionModel && <VisionTest url={ollamaUrl} model={visionModel} />}
-          </Field>
         </Section>
 
         <Section title="Watching">
