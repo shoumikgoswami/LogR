@@ -1,5 +1,6 @@
 use tauri::State;
 use crate::state::{DriftlogConfig, FlushHandle, PipelineStats, SharedStats};
+use crate::synthesis::openrouter::list_openrouter_models as or_list_models;
 
 pub fn load_config_sync() -> DriftlogConfig {
     let path = config_path();
@@ -181,6 +182,11 @@ pub async fn test_vision(url: String, model: String) -> Result<String, String> {
         Ok(desc) => Ok(format!("screenshot={}KB — {}", kb, desc)),
         Err(e) => Err(format!("screenshot={}KB captured, but: {}", kb, e)),
     }
+}
+
+#[tauri::command]
+pub async fn list_openrouter_models(api_key: String) -> Result<Vec<String>, String> {
+    or_list_models(&api_key).await
 }
 
 #[tauri::command]

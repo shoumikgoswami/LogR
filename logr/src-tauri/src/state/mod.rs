@@ -8,11 +8,25 @@ use crate::session::types::{FeedEntry, GeneratedNote, Session};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DriftlogConfig {
+    /// "ollama" or "openrouter"
+    #[serde(default = "default_provider")]
+    pub provider: String,
+
+    // ── Ollama ────────────────────────────────────────────────────
     pub ollama_model: String,
     pub ollama_url: String,
-    /// Vision model used for screenshot descriptions. Empty string = disabled.
+
+    // ── OpenRouter ───────────────────────────────────────────────
+    #[serde(default)]
+    pub openrouter_api_key: String,
+    #[serde(default = "default_openrouter_model")]
+    pub openrouter_model: String,
+
+    // ── Vision ───────────────────────────────────────────────────
+    /// Vision model for screenshot descriptions. Empty = disabled.
     #[serde(default)]
     pub vision_model: String,
+
     pub notes_dir: String,
     pub session_idle_timeout_secs: u64,
     pub min_dwell_secs: u64,
@@ -20,6 +34,9 @@ pub struct DriftlogConfig {
     pub watch_dirs: Vec<String>,
     pub watch_communication_apps: bool,
 }
+
+fn default_provider() -> String { "ollama".into() }
+fn default_openrouter_model() -> String { "google/gemini-flash-1.5".into() }
 
 impl Default for DriftlogConfig {
     fn default() -> Self {
@@ -30,9 +47,12 @@ impl Default for DriftlogConfig {
             .into_owned();
 
         Self {
+            provider: "ollama".into(),
             ollama_model: "gemma3:4b".into(),
             ollama_url: "http://localhost:11434".into(),
-            vision_model: String::new(), // disabled until user picks one
+            openrouter_api_key: String::new(),
+            openrouter_model: "google/gemini-flash-1.5".into(),
+            vision_model: String::new(),
             notes_dir,
             session_idle_timeout_secs: 120,
             min_dwell_secs: 10,

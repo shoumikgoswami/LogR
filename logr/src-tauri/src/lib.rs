@@ -20,6 +20,7 @@ use collectors::{
 use session::{types::RawEvent, FeedEntry, Session, SessionBuffer};
 use state::{FlushHandle, SharedStats};
 use synthesis::ollama::{OllamaClient, OllamaConfig};
+use synthesis::openrouter::OpenRouterClient;
 use tauri::Manager;
 use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
@@ -42,6 +43,7 @@ pub fn run() {
             commands::clear_notes,
             commands::check_ollama,
             commands::list_ollama_models,
+            commands::list_openrouter_models,
             commands::get_status,
             commands::flush_session,
             commands::write_test_note,
@@ -174,13 +176,24 @@ async fn run_synthesis(
 
     let mut queue: Vec<Session> = Vec::new();
 
-    // Check Ollama once at startup so the dashboard shows accurate status immediately.
-    let (running, has_model) = ollama.check_status().await;
-    push_stats(&app, |s| {
-        s.ollama_running = running;
-        s.model_available = has_model;
-        s.is_watching = true;
-    });
+    // Check provider status at startup for dashboard.
+    let cfg = commands::load_config_sync();
+    if cfg.provider == "openrouter" {
+        let or = OpenRouterClient::new(cfg.openrouter_api_key.clone(), cfg.openrouter_model.clone());
+        let ok = or.check_status().await;
+        push_stats(&app, |s| {
+            s.ollama_running = ok;
+            s.model_available = ok;
+            s.is_watching = true;
+        });
+    } else {
+        let (running, has_model) = ollama.check_status().await;
+        push_stats(&app, |s| {
+            s.ollama_running = running;
+            s.model_available = has_model;
+            s.is_watching = true;
+        });
+    }
 
     // Status check every 10 s; session drain retry every 60 s.
     let mut status_tick = interval(Duration::from_secs(10));
@@ -200,17 +213,29 @@ async fn run_synthesis(
                 drain_queue(&ollama, &writer, &mut queue, &app).await;
             }
             _ = status_tick.tick() => {
-                // Re-read config from disk so that a model change saved in Settings
-                // is reflected immediately without restarting the app.
-                let current_model = commands::load_config_sync().ollama_model;
-                let (running, has_model) = ollama.check_status_for_model(&current_model).await;
+                // Re-read config from disk so that provider/model changes saved in
+                // Settings are reflected immediately without restarting the app.
+                let cur_cfg = commands::load_config_sync();
                 let vc = vision_count.lock().map(|c| *c).unwrap_or(0);
-                push_stats(&app, |s| {
-                    s.ollama_running = running;
-                    s.model_available = has_model;
-                    s.events_in_session = event_count.lock().map(|c| *c).unwrap_or(0);
-                    s.vision_snapshots = vc;
-                });
+                let ec = event_count.lock().map(|c| *c).unwrap_or(0);
+                if cur_cfg.provider == "openrouter" {
+                    let or = OpenRouterClient::new(cur_cfg.openrouter_api_key.clone(), cur_cfg.openrouter_model.clone());
+                    let ok = or.check_status().await;
+                    push_stats(&app, |s| {
+                        s.ollama_running = ok;
+                        s.model_available = ok;
+                        s.events_in_session = ec;
+                        s.vision_snapshots = vc;
+                    });
+                } else {
+                    let (running, has_model) = ollama.check_status_for_model(&cur_cfg.ollama_model).await;
+                    push_stats(&app, |s| {
+                        s.ollama_running = running;
+                        s.model_available = has_model;
+                        s.events_in_session = ec;
+                        s.vision_snapshots = vc;
+                    });
+                }
             }
             _ = drain_tick.tick() => {
                 if !queue.is_empty() {
@@ -231,34 +256,51 @@ fn push_stats(app: &tauri::AppHandle, f: impl FnOnce(&mut state::PipelineStats))
     }
 }
 
-/// Drain queued sessions. Always writes a note — uses Ollama if available,
-/// falls back to raw markdown otherwise.
+/// Drain queued sessions. Always writes a note — uses the configured LLM provider
+/// if available, falls back to raw markdown otherwise.
 async fn drain_queue(
     ollama: &OllamaClient,
     writer: &MarkdownWriter,
     queue: &mut Vec<Session>,
     app: &tauri::AppHandle,
 ) -> bool {
-    let current_model = commands::load_config_sync().ollama_model;
-    let (running, has_model) = ollama.check_status_for_model(&current_model).await;
+    let cfg = commands::load_config_sync();
 
-    if !running {
-        tracing::warn!("Ollama offline — writing {} raw note(s)", queue.len());
-    } else if !has_model {
-        tracing::warn!("Model not pulled — writing {} raw note(s)", queue.len());
+    // Resolve provider readiness
+    let (provider_ready, model_ready) = if cfg.provider == "openrouter" {
+        let or = OpenRouterClient::new(cfg.openrouter_api_key.clone(), cfg.openrouter_model.clone());
+        let ok = or.check_status().await;
+        (ok, ok)
+    } else {
+        ollama.check_status_for_model(&cfg.ollama_model).await
+    };
+
+    if !provider_ready {
+        tracing::warn!("{} offline — writing {} raw note(s)",
+            if cfg.provider == "openrouter" { "OpenRouter" } else { "Ollama" },
+            queue.len());
+    } else if !model_ready {
+        tracing::warn!("Model not available — writing {} raw note(s)", queue.len());
     }
 
     let sessions = std::mem::take(queue);
     for session in sessions {
-        let result = if running && has_model {
-            match ollama.synthesize_with_model(&session, &current_model).await {
+        let result = if provider_ready && model_ready {
+            let synthesis = if cfg.provider == "openrouter" {
+                let or = OpenRouterClient::new(cfg.openrouter_api_key.clone(), cfg.openrouter_model.clone());
+                or.synthesize_with_model(&session, &cfg.openrouter_model).await
+            } else {
+                ollama.synthesize_with_model(&session, &cfg.ollama_model).await
+            };
+
+            match synthesis {
                 Ok(markdown) if !markdown.trim().is_empty() => writer.write(&session, &markdown),
                 Ok(_) => {
-                    tracing::warn!("Ollama returned empty response — falling back to raw");
+                    tracing::warn!("Provider returned empty response — falling back to raw");
                     writer.write_raw(&session)
                 }
                 Err(e) => {
-                    tracing::error!("Ollama synthesis failed: {} — falling back to raw", e);
+                    tracing::error!("Synthesis failed: {} — falling back to raw", e);
                     writer.write_raw(&session)
                 }
             }
@@ -272,13 +314,13 @@ async fn drain_queue(
                 push_stats(app, |s| {
                     s.total_notes += 1;
                     s.last_note_path = Some(note.file_path.clone());
-                    s.ollama_running = running;
-                    s.model_available = has_model;
+                    s.ollama_running = provider_ready;
+                    s.model_available = model_ready;
                 });
             }
             Err(e) => tracing::error!("Failed to write note: {}", e),
         }
     }
 
-    running && has_model
+    provider_ready && model_ready
 }
