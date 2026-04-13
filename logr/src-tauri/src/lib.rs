@@ -51,6 +51,7 @@ pub fn run() {
             commands::test_vision_with,
             commands::check_openrouter,
             commands::set_provider,
+            commands::refresh_provider_status,
         ])
         .setup(|app| {
             tray::setup_tray(&app.handle())?;

@@ -410,6 +410,9 @@ export default function Settings() {
       });
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
+      // Trigger immediate provider status check so the dashboard reflects
+      // the new config without waiting for the 10-second background tick.
+      invoke("refresh_provider_status").catch(() => {});
     } catch (e) {
       setSaveStatus("error");
       showToast("Save failed: " + e);

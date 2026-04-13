@@ -102,6 +102,12 @@ function Dashboard() {
     const next = stats.provider === "ollama" ? "openrouter" : "ollama";
     try {
       await invoke("set_provider", { provider: next });
+      // Optimistically update local display immediately
+      setStats((s) => s ? { ...s, provider: next, active_model: "checking…", ollama_running: false, model_available: false } : s);
+      // Then do a real connectivity check in the background
+      invoke("refresh_provider_status").then(() =>
+        invoke<PipelineStats>("get_status").then(setStats).catch(() => {})
+      ).catch(() => {});
     } catch (e) {
       setToast("Failed to switch provider: " + e);
     }

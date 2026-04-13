@@ -185,15 +185,70 @@ pub async fn list_openrouter_models(api_key: String) -> Result<Vec<String>, Stri
     or_list_models(&api_key).await
 }
 
-/// Switch the active provider without touching anything else in config.
+/// Switch the active provider and immediately reflect it in SharedStats
+/// so the dashboard updates on its next 3-second poll without waiting
+/// for the 10-second status tick.
 #[tauri::command]
-pub fn set_provider(provider: String) -> Result<(), String> {
+pub fn set_provider(provider: String, stats: State<'_, SharedStats>) -> Result<(), String> {
     let mut cfg = load_config_sync();
-    cfg.provider = provider;
+    cfg.provider = provider.clone();
     let path = config_path();
     std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
     let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| e.to_string())?;
+
+    // Immediately update dashboard stats — connection status will be
+    // re-verified on the next status tick (~10s).
+    let active_model = if provider == "openrouter" {
+        cfg.openrouter_model.clone()
+    } else {
+        cfg.ollama_model.clone()
+    };
+    if let Ok(mut guard) = stats.0.lock() {
+        guard.provider = provider;
+        guard.active_model = active_model;
+        guard.ollama_running = false;   // unknown until next tick
+        guard.model_available = false;
+    }
+    Ok(())
+}
+
+/// Force an immediate provider connectivity check and update SharedStats.
+/// Call this after switching providers so the dashboard shows live status
+/// without waiting for the 10-second background tick.
+#[tauri::command]
+pub async fn refresh_provider_status(stats: State<'_, SharedStats>) -> Result<(), String> {
+    use crate::synthesis::ollama::{OllamaClient, OllamaConfig};
+    use crate::synthesis::openrouter::OpenRouterClient;
+
+    let cfg = load_config_sync();
+
+    let (running, model_ok) = if cfg.provider == "openrouter" {
+        let or = OpenRouterClient::new(cfg.openrouter_api_key.clone(), cfg.openrouter_model.clone());
+        let ok = or.check_status().await;
+        (ok, ok)
+    } else {
+        let ollama = OllamaClient::new(OllamaConfig {
+            base_url: cfg.ollama_url.clone(),
+            model: cfg.ollama_model.clone(),
+            temperature: 0.7,
+            max_tokens: 1024,
+        });
+        ollama.check_status_for_model(&cfg.ollama_model).await
+    };
+
+    let active_model = if cfg.provider == "openrouter" {
+        cfg.openrouter_model.clone()
+    } else {
+        cfg.ollama_model.clone()
+    };
+
+    if let Ok(mut guard) = stats.0.lock() {
+        guard.provider = cfg.provider.clone();
+        guard.active_model = active_model;
+        guard.ollama_running = running;
+        guard.model_available = model_ok;
+    }
     Ok(())
 }
 
