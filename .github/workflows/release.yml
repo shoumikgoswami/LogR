@@ -44,7 +44,12 @@ jobs:
             libxrandr-dev \
             libpipewire-0.3-dev \
             libspa-0.2-dev \
+            pipewire \
             pkg-config
+          # Ensure pkg-config can find pipewire on this runner
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+          # Verify
+          pkg-config --modversion libpipewire-0.3 || (find /usr -name "libpipewire*.pc" 2>/dev/null && exit 1)
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -71,6 +76,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
         with:
           projectPath: logr
           tagName: ${{ github.ref_name }}
