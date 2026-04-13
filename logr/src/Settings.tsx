@@ -311,9 +311,9 @@ export default function Settings() {
     try {
       const models = await invoke<string[]>("list_ollama_models", { url });
       setAvailableModels(models);
-      if (models.length > 0) {
-        const target = currentModel ?? ollamaModel;
-        if (!models.includes(target)) setOllamaModel(models[0]);
+      // Only set to first model if nothing is saved yet
+      if (models.length > 0 && !currentModel && !ollamaModel) {
+        setOllamaModel(models[0]);
       }
     } catch (e: any) {
       setModelsError(String(e));
@@ -415,10 +415,6 @@ export default function Settings() {
   const ollamaStatusColor = { idle: "var(--color-muted)", checking: "#f59e0b", ok: "#22c55e", fail: "#ef4444" }[ollamaStatus];
   const ollamaStatusText = { idle: "Test Connection", checking: "Checking…", ok: "Connected ✓", fail: "Unreachable ✗" }[ollamaStatus];
 
-  // Build OpenRouter model options: fetched list + popular suggestions not already in the list
-  const orFetchedSet = new Set(orModels);
-  const orSuggestions = OR_POPULAR_MODELS.filter((m) => !orFetchedSet.has(m));
-  const orAllModels = orModels.length > 0 ? orModels : [];
 
   return (
     <div className="flex flex-col h-screen"
@@ -460,18 +456,18 @@ export default function Settings() {
               </Field>
               <Field label="Model">
                 <div className="flex gap-2 items-center">
-                  {availableModels.length > 0 ? (
-                    <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)}
-                      style={{ ...inputStyle, flex: 1, cursor: "pointer" }}>
-                      {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  ) : (
-                    <input style={{ ...inputStyle, flex: 1 }} value={ollamaModel}
-                      onChange={(e) => setOllamaModel(e.target.value)}
-                      placeholder={modelsError ? "gemma3:4b (Ollama offline)" : "gemma3:4b"} />
-                  )}
+                  <input
+                    list="ollama-models-list"
+                    style={{ ...inputStyle, flex: 1 }}
+                    value={ollamaModel}
+                    onChange={(e) => setOllamaModel(e.target.value)}
+                    placeholder="gemma3:4b"
+                  />
+                  <datalist id="ollama-models-list">
+                    {availableModels.map((m) => <option key={m} value={m} />)}
+                  </datalist>
                   <button onClick={() => fetchOllamaModels(ollamaUrl)} disabled={modelsLoading}
-                    title="Refresh model list"
+                    title="Refresh installed models"
                     style={{
                       background: "var(--color-border)", border: "1px solid var(--color-border)",
                       borderRadius: 6, padding: "5px 8px", cursor: modelsLoading ? "wait" : "pointer",
@@ -486,9 +482,14 @@ export default function Settings() {
                   </button>
                 </div>
                 {modelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{modelsError}</span>}
+                {availableModels.length > 0 && (
+                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    {availableModels.length} installed model{availableModels.length !== 1 ? "s" : ""} — type to filter, or enter any model name
+                  </span>
+                )}
                 {availableModels.length === 0 && !modelsError && !modelsLoading && (
                   <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    Connect to Ollama to pick from installed models, or type any model name
+                    Ollama offline — type any model name (e.g. gemma3:4b, llama3.2:3b)
                   </span>
                 )}
               </Field>
@@ -541,24 +542,20 @@ export default function Settings() {
 
               <Field label="Model">
                 <div className="flex gap-2 items-center">
-                  {orAllModels.length > 0 ? (
-                    <select value={orModel} onChange={(e) => setOrModel(e.target.value)}
-                      style={{ ...inputStyle, flex: 1, cursor: "pointer" }}>
-                      {orAllModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                      {/* keep saved value visible if not in fetched list */}
-                      {orModel && !orFetchedSet.has(orModel) && (
-                        <option value={orModel}>{orModel}</option>
-                      )}
-                    </select>
-                  ) : (
-                    <>
-                      <input style={{ ...inputStyle, flex: 1 }} value={orModel}
-                        onChange={(e) => setOrModel(e.target.value)}
-                        placeholder="google/gemini-flash-1.5" />
-                    </>
-                  )}
+                  {/* Always a text input — datalist provides autocomplete from fetched models */}
+                  <input
+                    list="or-models-list"
+                    style={{ ...inputStyle, flex: 1 }}
+                    value={orModel}
+                    onChange={(e) => setOrModel(e.target.value)}
+                    placeholder="google/gemini-flash-1.5"
+                  />
+                  {/* Cap datalist at 100 to avoid WebView freeze with 300+ models */}
+                  <datalist id="or-models-list">
+                    {orModels.slice(0, 100).map((m) => <option key={m} value={m} />)}
+                  </datalist>
                   <button onClick={fetchOrModels} disabled={orModelsLoading}
-                    title="Fetch models from OpenRouter"
+                    title="Fetch full model list from OpenRouter"
                     style={{
                       background: "var(--color-border)", border: "1px solid var(--color-border)",
                       borderRadius: 6, padding: "5px 8px", cursor: orModelsLoading ? "wait" : "pointer",
@@ -573,26 +570,30 @@ export default function Settings() {
                   </button>
                 </div>
                 {orModelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{orModelsError}</span>}
-                {orAllModels.length === 0 && !orModelsError && (
-                  <div className="flex flex-col gap-0.5 mt-1">
-                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                      Popular models — click refresh to load full list:
-                    </span>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {orSuggestions.slice(0, 6).map((m) => (
-                        <button key={m} onClick={() => setOrModel(m)}
-                          className="text-xs px-1.5 py-0.5 rounded"
-                          style={{
-                            background: orModel === m ? "var(--color-accent)" : "var(--color-border)",
-                            color: orModel === m ? "#0F0F0F" : "#e5e7eb",
-                            border: "1px solid var(--color-border)",
-                            cursor: "pointer",
-                          }}>
-                          {m.split("/")[1] ?? m}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                {/* Popular model chips — always shown as quick picks */}
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {OR_POPULAR_MODELS.map((m) => (
+                    <button key={m} onClick={() => setOrModel(m)}
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        background: orModel === m ? "var(--color-accent)" : "var(--color-border)",
+                        color: orModel === m ? "#0F0F0F" : "#e5e7eb",
+                        border: "1px solid var(--color-border)",
+                        cursor: "pointer",
+                      }}>
+                      {m.split("/")[1] ?? m}
+                    </button>
+                  ))}
+                </div>
+                {orModels.length > 0 && (
+                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    {orModels.length} models loaded — type to search, or click a chip above
+                  </span>
+                )}
+                {orModels.length === 0 && !orModelsError && (
+                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    Click ↻ to load full model list, or type any model ID
+                  </span>
                 )}
               </Field>
             </>
