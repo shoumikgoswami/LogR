@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import Settings from "./Settings";
 
@@ -93,6 +94,14 @@ function Dashboard() {
       setToast(`Flushing ${stats?.events_in_session ?? 0} events — note will appear shortly.`);
     } catch (e) {
       setToast(`Flush failed: ${e}`);
+    }
+  }
+
+  async function openSettings() {
+    const sw = await WebviewWindow.getByLabel("settings");
+    if (sw) {
+      await sw.show();
+      await sw.setFocus();
     }
   }
 
@@ -217,11 +226,18 @@ function Dashboard() {
           style={{ background: "var(--color-border)", color: "var(--color-accent)", border: "1px solid var(--color-accent)", cursor: "pointer" }}>
           ⚡ Flush Session Now
         </button>
-        <button onClick={handleTestNote}
-          className="w-full text-xs py-2 rounded"
-          style={{ background: "var(--color-border)", color: "var(--color-muted)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
-          🧪 Write Test Note
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleTestNote}
+            className="flex-1 text-xs py-2 rounded"
+            style={{ background: "var(--color-border)", color: "var(--color-muted)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
+            🧪 Test Note
+          </button>
+          <button onClick={openSettings}
+            className="flex-1 text-xs py-2 rounded"
+            style={{ background: "var(--color-border)", color: "var(--color-muted)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
+            ⚙ Settings
+          </button>
+        </div>
       </div>
 
       {/* Toast */}
