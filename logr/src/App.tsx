@@ -46,9 +46,27 @@ function Dashboard() {
   const [stats, setStats] = useState<PipelineStats | null>(null);
 
   useEffect(() => {
-    const handleBlur = () => win.hide();
+    // Debounce the hide so a brief focus-away (e.g. during the tray-click →
+    // show → focus sequence on Windows) doesn't instantly collapse the window.
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleBlur = () => {
+      hideTimer = setTimeout(() => win.hide(), 200);
+    };
+    const handleFocus = () => {
+      if (hideTimer !== null) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
     window.addEventListener("blur", handleBlur);
-    return () => window.removeEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      if (hideTimer !== null) clearTimeout(hideTimer);
+    };
   }, []);
 
   // Poll status every 3 seconds while visible

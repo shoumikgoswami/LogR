@@ -157,6 +157,7 @@ pub fn setup_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
 
 fn show_window<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
     }
