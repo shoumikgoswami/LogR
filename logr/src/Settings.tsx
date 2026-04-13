@@ -68,30 +68,44 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   );
 }
 
-// ── Provider tab switcher ──────────────────────────────────────
+// ── Active provider selector ───────────────────────────────────
 
-function ProviderTabs({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const tabs = [
-    { id: "ollama", label: "Ollama (local)" },
-    { id: "openrouter", label: "OpenRouter (cloud)" },
+function ProviderSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const options = [
+    { id: "ollama",      label: "Ollama",      sub: "local" },
+    { id: "openrouter",  label: "OpenRouter",  sub: "cloud" },
   ];
   return (
-    <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "#0F0F0F", border: "1px solid var(--color-border)" }}>
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onChange(t.id)}
-          className="flex-1 text-xs py-1.5 rounded-md font-medium transition-colors"
-          style={{
-            background: value === t.id ? "var(--color-accent)" : "transparent",
-            color: value === t.id ? "#0F0F0F" : "var(--color-muted)",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="flex gap-2">
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(o.id)}
+            className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-left"
+            style={{
+              background: active ? "rgba(34,211,238,0.08)" : "var(--color-surface)",
+              border: `1.5px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+              cursor: "pointer",
+            }}
+          >
+            {/* radio dot */}
+            <div style={{
+              width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+              border: `2px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+              background: active ? "var(--color-accent)" : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {active && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#0F0F0F" }} />}
+            </div>
+            <div>
+              <div className="text-xs font-semibold" style={{ color: active ? "var(--color-accent)" : "#e5e7eb" }}>{o.label}</div>
+              <div className="text-xs" style={{ color: "var(--color-muted)" }}>{o.sub}</div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -468,168 +482,154 @@ export default function Settings() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: "none" }}>
 
-        {/* LLM Provider */}
-        <Section title="LLM Provider">
-          <ProviderTabs value={provider} onChange={setProvider} />
+        {/* Active provider selector */}
+        <Section title="Active Provider">
+          <ProviderSelector value={provider} onChange={setProvider} />
+          <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+            Configure both below — switch anytime by selecting above and saving.
+          </span>
+        </Section>
 
-          {/* ── Ollama panel ── */}
-          {provider === "ollama" && (
-            <>
-              <Field label="Ollama URL">
-                <input style={inputStyle} value={ollamaUrl}
-                  onChange={(e) => { setOllamaUrl(e.target.value); setOllamaStatus("idle"); }} />
-              </Field>
-              <Field label="Model">
-                <div className="flex gap-2 items-center">
-                  <input
-                    list="ollama-models-list"
-                    style={{ ...inputStyle, flex: 1 }}
-                    value={ollamaModel}
-                    onChange={(e) => setOllamaModel(e.target.value)}
-                    placeholder="gemma3:4b"
-                  />
-                  <datalist id="ollama-models-list">
-                    {availableModels.map((m) => <option key={m} value={m} />)}
-                  </datalist>
-                  <button onClick={() => fetchOllamaModels(ollamaUrl)} disabled={modelsLoading}
-                    title="Refresh installed models"
-                    style={{
-                      background: "var(--color-border)", border: "1px solid var(--color-border)",
-                      borderRadius: 6, padding: "5px 8px", cursor: modelsLoading ? "wait" : "pointer",
-                      color: modelsLoading ? "var(--color-muted)" : "var(--color-accent)", flexShrink: 0,
-                    }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ display: "block", animation: modelsLoading ? "spin 1s linear infinite" : "none" }}>
-                      <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                    </svg>
-                  </button>
-                </div>
-                {modelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{modelsError}</span>}
-                {availableModels.length > 0 && (
-                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    {availableModels.length} installed model{availableModels.length !== 1 ? "s" : ""} — type to filter, or enter any model name
-                  </span>
-                )}
-                {availableModels.length === 0 && !modelsError && !modelsLoading && (
-                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    Ollama offline — type any model name (e.g. gemma3:4b, llama3.2:3b)
-                  </span>
-                )}
-              </Field>
-              <button onClick={handleTestConnection} disabled={ollamaStatus === "checking"}
-                className="text-xs px-3 py-1.5 rounded self-start"
-                style={{ background: "var(--color-border)", color: ollamaStatusColor, border: `1px solid ${ollamaStatusColor}`, cursor: ollamaStatus === "checking" ? "wait" : "pointer" }}>
-                {ollamaStatusText}
+        {/* Ollama config — always editable */}
+        <Section title="Ollama (local)">
+          <Field label="URL">
+            <input style={inputStyle} value={ollamaUrl}
+              onChange={(e) => { setOllamaUrl(e.target.value); setOllamaStatus("idle"); }} />
+          </Field>
+          <Field label="Model">
+            <div className="flex gap-2 items-center">
+              <input
+                list="ollama-models-list"
+                style={{ ...inputStyle, flex: 1 }}
+                value={ollamaModel}
+                onChange={(e) => setOllamaModel(e.target.value)}
+                placeholder="gemma3:4b"
+              />
+              <datalist id="ollama-models-list">
+                {availableModels.map((m) => <option key={m} value={m} />)}
+              </datalist>
+              <button onClick={() => fetchOllamaModels(ollamaUrl)} disabled={modelsLoading}
+                title="Refresh installed models"
+                style={{
+                  background: "var(--color-border)", border: "1px solid var(--color-border)",
+                  borderRadius: 6, padding: "5px 8px", cursor: modelsLoading ? "wait" : "pointer",
+                  color: modelsLoading ? "var(--color-muted)" : "var(--color-accent)", flexShrink: 0,
+                }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ display: "block", animation: modelsLoading ? "spin 1s linear infinite" : "none" }}>
+                  <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
               </button>
-            </>
-          )}
+            </div>
+            {modelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{modelsError}</span>}
+            {availableModels.length > 0 && (
+              <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                {availableModels.length} installed — type to filter or enter any model name
+              </span>
+            )}
+            {availableModels.length === 0 && !modelsError && !modelsLoading && (
+              <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                Offline — type any model name (e.g. gemma3:4b, llama3.2:3b)
+              </span>
+            )}
+          </Field>
+          <button onClick={handleTestConnection} disabled={ollamaStatus === "checking"}
+            className="text-xs px-3 py-1.5 rounded self-start"
+            style={{ background: "var(--color-border)", color: ollamaStatusColor, border: `1px solid ${ollamaStatusColor}`, cursor: ollamaStatus === "checking" ? "wait" : "pointer" }}>
+            {ollamaStatusText}
+          </button>
+        </Section>
 
-          {/* ── OpenRouter panel ── */}
-          {provider === "openrouter" && (
-            <>
-              <Field label="API Key">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type={orKeyRevealed ? "text" : "password"}
-                    style={{ ...inputStyle, flex: 1, fontFamily: orKeyRevealed ? "monospace" : undefined }}
-                    value={orApiKey}
-                    onChange={(e) => setOrApiKey(e.target.value)}
-                    placeholder="sk-or-v1-…"
-                    autoComplete="off"
-                  />
-                  <button onClick={() => setOrKeyRevealed((v) => !v)}
-                    title={orKeyRevealed ? "Hide key" : "Show key"}
-                    style={{
-                      background: "var(--color-border)", border: "1px solid var(--color-border)",
-                      borderRadius: 6, padding: "5px 8px", cursor: "pointer",
-                      color: "var(--color-muted)", flexShrink: 0,
-                    }}>
-                    {orKeyRevealed ? (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                  Get a key at{" "}
-                  <span style={{ color: "var(--color-accent)" }}>openrouter.ai/keys</span>
-                </span>
-              </Field>
-              <button
-                onClick={handleTestOrConnection}
-                disabled={orStatus === "checking"}
-                className="text-xs px-3 py-1.5 rounded self-start"
-                style={{ background: "var(--color-border)", color: orStatusColor, border: `1px solid ${orStatusColor}`, cursor: orStatus === "checking" ? "wait" : "pointer" }}>
-                {orStatusText}
+        {/* OpenRouter config — always editable */}
+        <Section title="OpenRouter (cloud)">
+          <Field label="API Key">
+            <div className="flex gap-2 items-center">
+              <input
+                type={orKeyRevealed ? "text" : "password"}
+                style={{ ...inputStyle, flex: 1, fontFamily: orKeyRevealed ? "monospace" : undefined }}
+                value={orApiKey}
+                onChange={(e) => setOrApiKey(e.target.value)}
+                placeholder="sk-or-v1-…"
+                autoComplete="off"
+              />
+              <button onClick={() => setOrKeyRevealed((v) => !v)}
+                title={orKeyRevealed ? "Hide key" : "Show key"}
+                style={{
+                  background: "var(--color-border)", border: "1px solid var(--color-border)",
+                  borderRadius: 6, padding: "5px 8px", cursor: "pointer",
+                  color: "var(--color-muted)", flexShrink: 0,
+                }}>
+                {orKeyRevealed ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
               </button>
-
-              <Field label="Model">
-                <div className="flex gap-2 items-center">
-                  {/* Always a text input — datalist provides autocomplete from fetched models */}
-                  <input
-                    list="or-models-list"
-                    style={{ ...inputStyle, flex: 1 }}
-                    value={orModel}
-                    onChange={(e) => setOrModel(e.target.value)}
-                    placeholder="google/gemini-flash-1.5"
-                  />
-                  {/* Cap datalist at 100 to avoid WebView freeze with 300+ models */}
-                  <datalist id="or-models-list">
-                    {orModels.slice(0, 100).map((m) => <option key={m} value={m} />)}
-                  </datalist>
-                  <button onClick={fetchOrModels} disabled={orModelsLoading}
-                    title="Fetch full model list from OpenRouter"
-                    style={{
-                      background: "var(--color-border)", border: "1px solid var(--color-border)",
-                      borderRadius: 6, padding: "5px 8px", cursor: orModelsLoading ? "wait" : "pointer",
-                      color: orModelsLoading ? "var(--color-muted)" : "var(--color-accent)", flexShrink: 0,
-                    }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ display: "block", animation: orModelsLoading ? "spin 1s linear infinite" : "none" }}>
-                      <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                    </svg>
-                  </button>
-                </div>
-                {orModelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{orModelsError}</span>}
-                {/* Popular model chips — always shown as quick picks */}
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {OR_POPULAR_MODELS.map((m) => (
-                    <button key={m} onClick={() => setOrModel(m)}
-                      className="text-xs px-1.5 py-0.5 rounded"
-                      style={{
-                        background: orModel === m ? "var(--color-accent)" : "var(--color-border)",
-                        color: orModel === m ? "#0F0F0F" : "#e5e7eb",
-                        border: "1px solid var(--color-border)",
-                        cursor: "pointer",
-                      }}>
-                      {m.split("/")[1] ?? m}
-                    </button>
-                  ))}
-                </div>
-                {orModels.length > 0 && (
-                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    {orModels.length} models loaded — type to search, or click a chip above
-                  </span>
-                )}
-                {orModels.length === 0 && !orModelsError && (
-                  <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    Click ↻ to load full model list, or type any model ID
-                  </span>
-                )}
-              </Field>
-            </>
-          )}
+            </div>
+            <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+              Get a key at <span style={{ color: "var(--color-accent)" }}>openrouter.ai/keys</span>
+            </span>
+          </Field>
+          <button onClick={handleTestOrConnection} disabled={orStatus === "checking"}
+            className="text-xs px-3 py-1.5 rounded self-start"
+            style={{ background: "var(--color-border)", color: orStatusColor, border: `1px solid ${orStatusColor}`, cursor: orStatus === "checking" ? "wait" : "pointer" }}>
+            {orStatusText}
+          </button>
+          <Field label="Model">
+            <div className="flex gap-2 items-center">
+              <input
+                list="or-models-list"
+                style={{ ...inputStyle, flex: 1 }}
+                value={orModel}
+                onChange={(e) => setOrModel(e.target.value)}
+                placeholder="google/gemini-2.0-flash-001"
+              />
+              <datalist id="or-models-list">
+                {orModels.slice(0, 100).map((m) => <option key={m} value={m} />)}
+              </datalist>
+              <button onClick={fetchOrModels} disabled={orModelsLoading}
+                title="Fetch full model list from OpenRouter"
+                style={{
+                  background: "var(--color-border)", border: "1px solid var(--color-border)",
+                  borderRadius: 6, padding: "5px 8px", cursor: orModelsLoading ? "wait" : "pointer",
+                  color: orModelsLoading ? "var(--color-muted)" : "var(--color-accent)", flexShrink: 0,
+                }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ display: "block", animation: orModelsLoading ? "spin 1s linear infinite" : "none" }}>
+                  <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              </button>
+            </div>
+            {orModelsError && <span className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{orModelsError}</span>}
+            <div className="flex flex-wrap gap-1 mt-1">
+              {OR_POPULAR_MODELS.map((m) => (
+                <button key={m} onClick={() => setOrModel(m)}
+                  className="text-xs px-1.5 py-0.5 rounded"
+                  style={{
+                    background: orModel === m ? "var(--color-accent)" : "var(--color-border)",
+                    color: orModel === m ? "#0F0F0F" : "#e5e7eb",
+                    border: "1px solid var(--color-border)", cursor: "pointer",
+                  }}>
+                  {m.split("/")[1] ?? m}
+                </button>
+              ))}
+            </div>
+            {orModels.length === 0 && !orModelsError && (
+              <span className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                Click ↻ to load full model list, or type any model ID
+              </span>
+            )}
+          </Field>
         </Section>
 
         {/* Vision — provider-aware */}

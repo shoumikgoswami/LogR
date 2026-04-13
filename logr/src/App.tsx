@@ -97,6 +97,16 @@ function Dashboard() {
     }
   }
 
+  async function handleToggleProvider() {
+    if (!stats) return;
+    const next = stats.provider === "ollama" ? "openrouter" : "ollama";
+    try {
+      await invoke("set_provider", { provider: next });
+    } catch (e) {
+      setToast("Failed to switch provider: " + e);
+    }
+  }
+
   async function openSettings() {
     const sw = await WebviewWindow.getByLabel("settings");
     if (sw) {
@@ -182,7 +192,24 @@ function Dashboard() {
             {stats ? "Watching" : "Starting…"}
           </span>
         </div>
-        <StatRow label="Provider" value={providerLabel} accent={!!stats?.ollama_running} />
+        {/* Clickable provider row — tap to switch */}
+        <div className="flex items-center justify-between py-1.5"
+          style={{ borderBottom: "1px solid var(--color-border)", cursor: stats ? "pointer" : "default" }}
+          onClick={stats ? handleToggleProvider : undefined}
+          title="Click to switch provider">
+          <span className="text-xs" style={{ color: "var(--color-muted)" }}>Provider</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium" style={{ color: stats?.ollama_running ? "var(--color-accent)" : "#e5e7eb" }}>
+              {providerLabel}
+            </span>
+            {stats && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 16V4m0 0L3 8m4-4l4 4" /><path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            )}
+          </div>
+        </div>
         <StatRow label="Model" value={modelLabel} accent={!!stats?.ollama_running} />
         <StatRow label="Status" value={providerStatus} accent={!!stats?.ollama_running} />
         <StatRow label="Events buffered" value={String(stats?.events_in_session ?? 0)} accent={!!stats && stats.events_in_session > 0} />

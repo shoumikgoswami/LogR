@@ -185,6 +185,18 @@ pub async fn list_openrouter_models(api_key: String) -> Result<Vec<String>, Stri
     or_list_models(&api_key).await
 }
 
+/// Switch the active provider without touching anything else in config.
+#[tauri::command]
+pub fn set_provider(provider: String) -> Result<(), String> {
+    let mut cfg = load_config_sync();
+    cfg.provider = provider;
+    let path = config_path();
+    std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Check that the OpenRouter API key is valid and the endpoint is reachable.
 #[tauri::command]
 pub async fn check_openrouter(api_key: String) -> bool {
