@@ -99,9 +99,13 @@ pub struct PipelineStats {
     pub total_notes: u32,
     /// How many window events had a successful vision screenshot description.
     pub vision_snapshots: u32,
-    /// Ollama process is reachable at all.
+    /// "ollama" or "openrouter"
+    pub provider: String,
+    /// The active model name (synthesis model).
+    pub active_model: String,
+    /// Provider process / API is reachable.
     pub ollama_running: bool,
-    /// The configured model has been pulled and is ready.
+    /// The configured model has been pulled / is ready.
     pub model_available: bool,
     pub is_watching: bool,
     pub last_note_path: Option<String>,
@@ -115,6 +119,8 @@ impl SharedStats {
             events_in_session: 0,
             total_notes: 0,
             vision_snapshots: 0,
+            provider: "ollama".into(),
+            active_model: String::new(),
             ollama_running: false,
             model_available: false,
             is_watching: true,

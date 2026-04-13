@@ -9,6 +9,8 @@ interface PipelineStats {
   events_in_session: number;
   total_notes: number;
   vision_snapshots: number;
+  provider: string;
+  active_model: string;
   ollama_running: boolean;
   model_available: boolean;
   is_watching: boolean;
@@ -110,11 +112,22 @@ function Dashboard() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const ollamaLabel = !stats
+  const providerLabel = !stats
+    ? "—"
+    : stats.provider === "openrouter" ? "OpenRouter" : "Ollama (local)";
+
+  const providerStatus = !stats
     ? "—"
     : stats.ollama_running
-      ? stats.model_available ? "Connected" : "Running — model not pulled"
+      ? stats.model_available ? "Connected ✓" : "Reachable — model not ready"
       : "Offline";
+
+  const modelLabel = stats?.active_model
+    ? stats.active_model.length > 28
+      ? "…" + stats.active_model.slice(-26)
+      : stats.active_model
+    : "—";
+
   const lastNote = stats?.last_note_path
     ? stats.last_note_path.split(/[\\/]/).slice(-2).join("/")
     : "None yet";
@@ -160,7 +173,9 @@ function Dashboard() {
             {stats ? "Watching" : "Starting…"}
           </span>
         </div>
-        <StatRow label="Ollama" value={ollamaLabel} accent={!!stats?.ollama_running} />
+        <StatRow label="Provider" value={providerLabel} accent={!!stats?.ollama_running} />
+        <StatRow label="Model" value={modelLabel} accent={!!stats?.ollama_running} />
+        <StatRow label="Status" value={providerStatus} accent={!!stats?.ollama_running} />
         <StatRow label="Events buffered" value={String(stats?.events_in_session ?? 0)} accent={!!stats && stats.events_in_session > 0} />
         <StatRow label="Notes written" value={String(stats?.total_notes ?? 0)} accent={!!stats && stats.total_notes > 0} />
         <StatRow label="Vision snapshots" value={String(stats?.vision_snapshots ?? 0)} accent={!!stats && (stats.vision_snapshots ?? 0) > 0} />
@@ -171,18 +186,25 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Ollama warning */}
-      {stats && !stats.ollama_running && (
+      {/* Provider warning */}
+      {stats && !stats.ollama_running && stats.provider === "ollama" && (
         <div className="mx-4 mt-3 px-3 py-2 rounded text-xs"
           style={{ background: "#2d1f00", border: "1px solid #78350f", color: "#fbbf24" }}>
           Ollama is offline. Start it with <code className="font-mono">ollama serve</code>.
           Sessions are queued and will be processed when it comes back.
         </div>
       )}
-      {stats && stats.ollama_running && !stats.model_available && (
+      {stats && !stats.ollama_running && stats.provider === "openrouter" && (
+        <div className="mx-4 mt-3 px-3 py-2 rounded text-xs"
+          style={{ background: "#2d1f00", border: "1px solid #78350f", color: "#fbbf24" }}>
+          OpenRouter unreachable — check your API key in Settings.
+          Sessions are queued and will be processed when it comes back.
+        </div>
+      )}
+      {stats && stats.ollama_running && !stats.model_available && stats.provider === "ollama" && (
         <div className="mx-4 mt-3 px-3 py-2 rounded text-xs"
           style={{ background: "#1a1a00", border: "1px solid #713f12", color: "#fbbf24" }}>
-          Model not pulled. Run <code className="font-mono">ollama pull gemma3:4b</code> to enable AI summaries.
+          Model not pulled. Run <code className="font-mono">ollama pull {stats.active_model || "gemma3:4b"}</code> to enable AI summaries.
           Notes are being written in raw format until then.
         </div>
       )}

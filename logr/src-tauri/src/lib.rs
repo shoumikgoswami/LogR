@@ -223,7 +223,10 @@ async fn run_synthesis(
                 if cur_cfg.provider == "openrouter" {
                     let or = OpenRouterClient::new(cur_cfg.openrouter_api_key.clone(), cur_cfg.openrouter_model.clone());
                     let ok = or.check_status().await;
+                    let model = cur_cfg.openrouter_model.clone();
                     push_stats(&app, |s| {
+                        s.provider = "openrouter".into();
+                        s.active_model = model;
                         s.ollama_running = ok;
                         s.model_available = ok;
                         s.events_in_session = ec;
@@ -231,7 +234,10 @@ async fn run_synthesis(
                     });
                 } else {
                     let (running, has_model) = ollama.check_status_for_model(&cur_cfg.ollama_model).await;
+                    let model = cur_cfg.ollama_model.clone();
                     push_stats(&app, |s| {
+                        s.provider = "ollama".into();
+                        s.active_model = model;
                         s.ollama_running = running;
                         s.model_available = has_model;
                         s.events_in_session = ec;
