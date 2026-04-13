@@ -57,9 +57,35 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: LogR ${{ github.ref_name }}
           releaseBody: |
-            See the [README](https://github.com/${{ github.repository }}/blob/main/README.md) for setup instructions.
+            ## What's New in ${{ github.ref_name }}
 
-            **Requires [Ollama](https://ollama.com) running locally.**
-          releaseDraft: true
+            ### 🔀 Multi-Provider LLM Support
+            - **OpenRouter integration** — use any cloud model (Claude, Gemini, GPT-4o, Llama, etc.) for note synthesis
+            - **Active Provider selector** in Settings — configure both Ollama and OpenRouter, switch anytime
+            - **One-click provider toggle** on the dashboard — tap the Provider row to switch instantly
+            - Dashboard shows active **Provider**, **Model**, and **Status** in real time
+
+            ### 👁 Vision (Screenshot Descriptions)
+            - Vision now routes through the active provider — Ollama for local, OpenRouter for cloud
+            - **Test Vision** button works with current (unsaved) settings
+            - **Test Connection** button for OpenRouter validates your API key immediately
+
+            ### 🛠 Fixes
+            - Dashboard no longer fails to open on tray click (Windows)
+            - Ollama model field always allows free-text input — supports cloud/custom model names
+            - OpenRouter model picker no longer crashes with large model lists
+            - Settings button added directly to dashboard for easy access
+
+            ### 📦 Installation
+            | Platform | File |
+            |----------|------|
+            | Windows | `LogR_*_x64-setup.exe` or `LogR_*_x64_en-US.msi` |
+            | macOS (Apple Silicon) | `LogR_*_aarch64.dmg` |
+            | macOS (Intel) | `LogR_*_x64.dmg` |
+
+            ### Requirements
+            - **Ollama provider**: [Ollama](https://ollama.com) running locally (`ollama pull gemma3:4b`)
+            - **OpenRouter provider**: API key from [openrouter.ai/keys](https://openrouter.ai/keys)
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
