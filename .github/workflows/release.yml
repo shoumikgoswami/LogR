@@ -41,7 +41,10 @@ jobs:
             libxdo-dev \
             libxtst-dev \
             libx11-dev \
-            libxrandr-dev
+            libxrandr-dev \
+            libpipewire-0.3-dev \
+            libspa-0.2-dev \
+            pkg-config
 
       - name: Setup Node
         uses: actions/setup-node@v4
