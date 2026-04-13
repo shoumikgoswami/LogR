@@ -185,6 +185,52 @@ pub async fn list_openrouter_models(api_key: String) -> Result<Vec<String>, Stri
     or_list_models(&api_key).await
 }
 
+/// Check that the OpenRouter API key is valid and the endpoint is reachable.
+#[tauri::command]
+pub async fn check_openrouter(api_key: String) -> bool {
+    use crate::synthesis::openrouter::OpenRouterClient;
+    if api_key.trim().is_empty() { return false; }
+    OpenRouterClient::new(api_key, String::new()).check_status().await
+}
+
+/// Test vision with the current (unsaved) provider settings so the user
+/// doesn't need to save before clicking "Test vision".
+#[tauri::command]
+pub async fn test_vision_with(
+    provider: String,
+    ollama_url: String,
+    vision_model: String,
+    openrouter_api_key: String,
+) -> Result<String, String> {
+    use base64::Engine;
+    use crate::collectors::screenshot::{
+        capture_primary_screen, ask_vision_ollama_with_error, ask_vision_openrouter_with_error,
+    };
+
+    if vision_model.trim().is_empty() {
+        return Err("No vision model set.".into());
+    }
+
+    let jpeg_bytes = tokio::task::spawn_blocking(capture_primary_screen)
+        .await
+        .map_err(|e| format!("spawn_blocking panic: {e}"))?
+        .ok_or_else(|| "Screen capture failed".to_string())?;
+
+    let kb = jpeg_bytes.len() / 1024;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
+
+    let result = if provider == "openrouter" {
+        ask_vision_openrouter_with_error(&openrouter_api_key, &vision_model, &b64).await
+    } else {
+        ask_vision_ollama_with_error(&ollama_url, &vision_model, &b64).await
+    };
+
+    match result {
+        Ok(desc) => Ok(format!("screenshot={}KB — {}", kb, desc)),
+        Err(e)   => Err(format!("screenshot={}KB captured, but: {}", kb, e)),
+    }
+}
+
 #[tauri::command]
 pub async fn list_ollama_models(url: String) -> Result<Vec<String>, String> {
     #[derive(serde::Deserialize)]

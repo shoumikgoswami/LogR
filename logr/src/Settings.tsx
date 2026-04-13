@@ -157,8 +157,8 @@ function VisionModelPicker({
 
 // Multimodal models available on OpenRouter that support image input
 const OR_VISION_MODELS = [
-  { id: "google/gemini-flash-1.5",              label: "Gemini Flash 1.5 — fast, cheap, multimodal" },
-  { id: "google/gemini-2.0-flash-001",          label: "Gemini 2.0 Flash — fast, multimodal" },
+  { id: "google/gemini-2.0-flash-001",          label: "Gemini 2.0 Flash — fast, multimodal (recommended)" },
+  { id: "google/gemini-flash-1.5-8b",           label: "Gemini Flash 1.5 8B — cheapest multimodal" },
   { id: "google/gemini-2.5-pro-preview-03-25",  label: "Gemini 2.5 Pro — powerful, multimodal" },
   { id: "anthropic/claude-3.5-haiku",           label: "Claude 3.5 Haiku — fast, multimodal" },
   { id: "anthropic/claude-3.5-sonnet",          label: "Claude 3.5 Sonnet — accurate, multimodal" },
@@ -196,7 +196,12 @@ function OrVisionModelPicker({ value, onChange }: { value: string; onChange: (v:
   );
 }
 
-function VisionTest() {
+function VisionTest({ provider, ollamaUrl, visionModel, orApiKey }: {
+  provider: string;
+  ollamaUrl: string;
+  visionModel: string;
+  orApiKey: string;
+}) {
   const [result, setResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -204,7 +209,12 @@ function VisionTest() {
     setRunning(true);
     setResult(null);
     try {
-      const desc = await invoke<string>("test_vision");
+      const desc = await invoke<string>("test_vision_with", {
+        provider,
+        ollamaUrl,
+        visionModel,
+        openrouterApiKey: orApiKey,
+      });
       setResult("✓ " + desc);
     } catch (e: unknown) {
       setResult("✗ " + String(e));
@@ -237,9 +247,9 @@ function VisionTest() {
 const OR_POPULAR_MODELS = [
   "anthropic/claude-3.5-haiku",
   "anthropic/claude-3.5-sonnet",
-  "google/gemini-flash-1.5",
   "google/gemini-2.0-flash-001",
   "google/gemini-2.5-pro-preview-03-25",
+  "google/gemini-flash-1.5-8b",
   "meta-llama/llama-3.3-70b-instruct",
   "mistralai/mistral-nemo",
   "openai/gpt-4o-mini",
@@ -264,7 +274,7 @@ export default function Settings() {
 
   // ── OpenRouter ────────────────────────────────────────────────
   const [orApiKey, setOrApiKey] = useState("");
-  const [orModel, setOrModel] = useState("google/gemini-flash-1.5");
+  const [orModel, setOrModel] = useState("google/gemini-2.0-flash-001");
   const [orModels, setOrModels] = useState<string[]>([]);
   const [orModelsLoading, setOrModelsLoading] = useState(false);
   const [orModelsError, setOrModelsError] = useState<string | null>(null);
@@ -415,6 +425,21 @@ export default function Settings() {
   const ollamaStatusColor = { idle: "var(--color-muted)", checking: "#f59e0b", ok: "#22c55e", fail: "#ef4444" }[ollamaStatus];
   const ollamaStatusText = { idle: "Test Connection", checking: "Checking…", ok: "Connected ✓", fail: "Unreachable ✗" }[ollamaStatus];
 
+  const [orStatus, setOrStatus] = useState<"idle" | "checking" | "ok" | "fail">("idle");
+  const orStatusColor = { idle: "var(--color-muted)", checking: "#f59e0b", ok: "#22c55e", fail: "#ef4444" }[orStatus];
+  const orStatusText = { idle: "Test Connection", checking: "Checking…", ok: "Connected ✓", fail: "Invalid key ✗" }[orStatus];
+
+  async function handleTestOrConnection() {
+    setOrStatus("checking");
+    try {
+      const ok = await invoke<boolean>("check_openrouter", { apiKey: orApiKey });
+      setOrStatus(ok ? "ok" : "fail");
+      if (ok) fetchOrModels();
+    } catch {
+      setOrStatus("fail");
+    }
+  }
+
 
   return (
     <div className="flex flex-col h-screen"
@@ -539,6 +564,13 @@ export default function Settings() {
                   <span style={{ color: "var(--color-accent)" }}>openrouter.ai/keys</span>
                 </span>
               </Field>
+              <button
+                onClick={handleTestOrConnection}
+                disabled={orStatus === "checking"}
+                className="text-xs px-3 py-1.5 rounded self-start"
+                style={{ background: "var(--color-border)", color: orStatusColor, border: `1px solid ${orStatusColor}`, cursor: orStatus === "checking" ? "wait" : "pointer" }}>
+                {orStatusText}
+              </button>
 
               <Field label="Model">
                 <div className="flex gap-2 items-center">
@@ -615,7 +647,9 @@ export default function Settings() {
                   ? `Screenshots sent to local Ollama (${visionModel}) — never stored on disk.`
                   : "Disabled — no screenshots will be taken."}
               </span>
-              {visionModel && <VisionTest />}
+              {visionModel && (
+                <VisionTest provider="ollama" ollamaUrl={ollamaUrl} visionModel={visionModel} orApiKey="" />
+              )}
             </Field>
           ) : (
             <Field label="Vision model">
@@ -625,7 +659,9 @@ export default function Settings() {
                   ? `Screenshots sent to OpenRouter (${visionModel}) — images are never stored on disk.`
                   : "Disabled — no screenshots will be taken."}
               </span>
-              {visionModel && <VisionTest />}
+              {visionModel && (
+                <VisionTest provider="openrouter" ollamaUrl="" visionModel={visionModel} orApiKey={orApiKey} />
+              )}
             </Field>
           )}
         </Section>

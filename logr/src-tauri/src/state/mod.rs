@@ -36,7 +36,7 @@ pub struct DriftlogConfig {
 }
 
 fn default_provider() -> String { "ollama".into() }
-fn default_openrouter_model() -> String { "google/gemini-flash-1.5".into() }
+fn default_openrouter_model() -> String { "google/gemini-2.0-flash-001".into() }
 
 impl Default for DriftlogConfig {
     fn default() -> Self {
@@ -51,7 +51,7 @@ impl Default for DriftlogConfig {
             ollama_model: "gemma3:4b".into(),
             ollama_url: "http://localhost:11434".into(),
             openrouter_api_key: String::new(),
-            openrouter_model: "google/gemini-flash-1.5".into(),
+            openrouter_model: "google/gemini-2.0-flash-001".into(),
             vision_model: String::new(),
             notes_dir,
             session_idle_timeout_secs: 120,

@@ -48,6 +48,8 @@ pub fn run() {
             commands::flush_session,
             commands::write_test_note,
             commands::test_vision,
+            commands::test_vision_with,
+            commands::check_openrouter,
         ])
         .setup(|app| {
             tray::setup_tray(&app.handle())?;
