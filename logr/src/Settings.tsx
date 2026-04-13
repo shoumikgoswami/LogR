@@ -556,25 +556,42 @@ export default function Settings() {
           )}
         </Section>
 
-        {/* Vision — only shown for Ollama (vision runs locally) */}
-        {provider === "ollama" && (
-          <Section title="Vision (screenshot descriptions)">
-            <Field label="Vision model">
-              <VisionModelPicker
-                value={visionModel}
-                onChange={setVisionModel}
-                localModels={availableModels}
-                modelsLoading={modelsLoading}
-              />
-              <span className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-                {visionModel
-                  ? `Screenshots will be described by ${visionModel} — images are never saved to disk.`
-                  : "Disabled — no screenshots will be taken."}
+        {/* Vision — always available; runs locally via Ollama regardless of provider */}
+        <Section title="Vision (screenshot descriptions)">
+          {provider === "openrouter" && (
+            <div className="flex items-start gap-2 px-2 py-1.5 rounded"
+              style={{ background: "#0F0F0F", border: "1px solid var(--color-border)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                Vision always runs <strong style={{ color: "#e5e7eb" }}>locally via Ollama</strong> — screenshots are never sent to OpenRouter.
               </span>
-              {visionModel && <VisionTest url={ollamaUrl} model={visionModel} />}
+            </div>
+          )}
+          {provider === "openrouter" && (
+            <Field label="Ollama URL (for vision only)">
+              <input style={inputStyle} value={ollamaUrl}
+                onChange={(e) => { setOllamaUrl(e.target.value); setOllamaStatus("idle"); }}
+                placeholder="http://localhost:11434" />
             </Field>
-          </Section>
-        )}
+          )}
+          <Field label="Vision model">
+            <VisionModelPicker
+              value={visionModel}
+              onChange={setVisionModel}
+              localModels={availableModels}
+              modelsLoading={modelsLoading}
+            />
+            <span className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+              {visionModel
+                ? `Screenshots will be described by ${visionModel} — images are never saved to disk.`
+                : "Disabled — no screenshots will be taken."}
+            </span>
+            {visionModel && <VisionTest url={ollamaUrl} model={visionModel} />}
+          </Field>
+        </Section>
 
         <Section title="Watching">
           <ToggleRow label="Window focus" value={watchWindow} onChange={setWatchWindow} />
