@@ -31,18 +31,38 @@ impl KeyboardCollector {
         let counter = Arc::new(AtomicU32::new(0));
         let counter_rdev = counter.clone();
 
-        // rdev::listen blocks the calling thread and requires a message loop on Windows.
-        // Spawn it in a dedicated OS thread; all it does is increment an atomic counter.
+        // rdev::listen blocks the calling thread. On macOS, rdev uses CGEventTap
+        // which can cause a hard SIGSEGV crash when Accessibility permissions are
+        // not granted — this cannot be caught with catch_unwind. Skip keyboard
+        // collection on macOS to avoid crashing the app; all other collectors
+        // (window, clipboard, filesystem) still function normally.
+        #[cfg(not(target_os = "macos"))]
         std::thread::Builder::new()
             .name("logr-keyboard-hook".into())
             .spawn(move || {
-                let _ = rdev::listen(move |event| {
-                    if matches!(event.event_type, rdev::EventType::KeyPress(_)) {
-                        counter_rdev.fetch_add(1, Ordering::Relaxed);
-                    }
-                });
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _ = rdev::listen(move |event| {
+                        if matches!(event.event_type, rdev::EventType::KeyPress(_)) {
+                            counter_rdev.fetch_add(1, Ordering::Relaxed);
+                        }
+                    });
+                }));
+                if result.is_err() {
+                    tracing::warn!(
+                        "[keyboard] rdev hook failed — keyboard collection disabled."
+                    );
+                }
             })
             .ok();
+
+        #[cfg(target_os = "macos")]
+        {
+            tracing::info!(
+                "[keyboard] Keyboard hook disabled on macOS (requires Accessibility \
+                 permissions which may cause crashes). Keystroke counting unavailable."
+            );
+            drop(counter_rdev); // silence unused warning
+        }
 
         let mut poll_tick = tokio::time::interval(Duration::from_secs(SETTLE_SECS));
         poll_tick.tick().await; // skip first immediate tick
