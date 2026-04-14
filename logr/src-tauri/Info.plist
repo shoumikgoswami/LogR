@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>LogR captures periodic screenshots to describe your activity. Images are processed locally or via your configured AI provider and are never stored to disk.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>LogR reads the active window title to understand your current context for activity logging.</string>
+</dict>
+</plist>
