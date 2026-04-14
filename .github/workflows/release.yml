@@ -59,22 +59,9 @@ jobs:
           releaseBody: |
             ## What's New in ${{ github.ref_name }}
 
-            ### 🔀 Multi-Provider LLM Support
-            - **OpenRouter integration** — use any cloud model (Claude, Gemini, GPT-4o, Llama, etc.) for note synthesis
-            - **Active Provider selector** in Settings — configure both Ollama and OpenRouter, switch anytime
-            - **One-click provider toggle** on the dashboard — tap the Provider row to switch instantly
-            - Dashboard shows active **Provider**, **Model**, and **Status** in real time
-
-            ### 👁 Vision (Screenshot Descriptions)
-            - Vision now routes through the active provider — Ollama for local, OpenRouter for cloud
-            - **Test Vision** button works with current (unsaved) settings
-            - **Test Connection** button for OpenRouter validates your API key immediately
-
-            ### 🛠 Fixes
-            - Dashboard no longer fails to open on tray click (Windows)
-            - Ollama model field always allows free-text input — supports cloud/custom model names
-            - OpenRouter model picker no longer crashes with large model lists
-            - Settings button added directly to dashboard for easy access
+            ### 🐛 macOS Crash Fix
+            - **Fixed crash when typing in Settings** — the global keyboard hook (`rdev`) was causing a hard SIGSEGV crash on macOS when Accessibility permissions were not granted. Keyboard collection is now disabled on macOS; all other features (window tracking, clipboard, filesystem, synthesis) remain fully active.
+            - **Screen Recording permission prompt** — macOS will now properly ask for Screen Recording permission when vision is first used, instead of silently failing.
 
             ### 📦 Installation
             | Platform | File |
@@ -86,6 +73,10 @@ jobs:
             ### Requirements
             - **Ollama provider**: [Ollama](https://ollama.com) running locally (`ollama pull gemma3:4b`)
             - **OpenRouter provider**: API key from [openrouter.ai/keys](https://openrouter.ai/keys)
+
+            ### macOS Notes
+            - On first launch, macOS may ask for **Screen Recording** permission — grant it to enable vision (screenshot descriptions).
+            - Keystroke counting is not available on macOS (no Accessibility permission required).
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
