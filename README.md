@@ -229,4 +229,4 @@ logr/
 
 ## License
 
-Personal project — not yet licensed for distribution.
+MIT
