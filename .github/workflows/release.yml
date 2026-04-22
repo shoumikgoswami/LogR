@@ -59,9 +59,14 @@ jobs:
           releaseBody: |
             ## What's New in ${{ github.ref_name }}
 
-            ### 🐛 macOS Crash Fix
-            - **Fixed crash when typing in Settings** — the global keyboard hook (`rdev`) was causing a hard SIGSEGV crash on macOS when Accessibility permissions were not granted. Keyboard collection is now disabled on macOS; all other features (window tracking, clipboard, filesystem, synthesis) remain fully active.
-            - **Screen Recording permission prompt** — macOS will now properly ask for Screen Recording permission when vision is first used, instead of silently failing.
+            ### 🐛 macOS Fixes
+            - **Fixed crash when typing in Settings** — the global keyboard hook (`rdev`) caused a hard SIGSEGV crash on macOS without Accessibility permissions. Keyboard collection is now disabled on macOS; all other features remain fully active.
+            - **Fixed events not recording on macOS** — window tracking requires Screen Recording permission on macOS 14 (Sonoma). The app now detects when this permission is missing and shows a clear warning in the dashboard with instructions to enable it.
+            - **Screen Recording permission prompt** — macOS will now properly request Screen Recording access on first use instead of silently failing.
+
+            ### ⏸ Pause / Resume
+            - **Play/pause now works** — the tray "Pause Watching" item and a new inline dashboard button both correctly pause/resume event collection.
+            - Dashboard status dot turns **amber** when paused and shows a ▶ Resume button; green with ⏸ Pause when active.
 
             ### 📦 Installation
             | Platform | File |
@@ -74,9 +79,10 @@ jobs:
             - **Ollama provider**: [Ollama](https://ollama.com) running locally (`ollama pull gemma3:4b`)
             - **OpenRouter provider**: API key from [openrouter.ai/keys](https://openrouter.ai/keys)
 
-            ### macOS Notes
-            - On first launch, macOS may ask for **Screen Recording** permission — grant it to enable vision (screenshot descriptions).
-            - Keystroke counting is not available on macOS (no Accessibility permission required).
+            ### macOS First-Run Setup
+            1. Open **System Settings → Privacy & Security → Screen Recording**
+            2. Enable **LogR** — required for window tracking and vision snapshots
+            3. Relaunch the app
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
