@@ -252,6 +252,20 @@ pub async fn refresh_provider_status(stats: State<'_, SharedStats>) -> Result<()
     Ok(())
 }
 
+/// Manually trigger daily summary generation for a given date ("YYYY-MM-DD").
+/// Pass an empty string to default to yesterday.
+/// Returns the path of the written summary file.
+#[tauri::command]
+pub async fn generate_daily_summary(date: String) -> Result<String, String> {
+    use crate::synthesis::daily_summary::generate_for_date;
+
+    let config = load_config_sync();
+    let notes_dir = std::path::PathBuf::from(&config.notes_dir);
+
+    let path = generate_for_date(&date, &notes_dir, &config).await?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 /// Toggle the pipeline pause state. Returns the new paused state (true = paused).
 #[tauri::command]
 pub fn toggle_pause(

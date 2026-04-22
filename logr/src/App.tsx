@@ -148,6 +148,21 @@ function Dashboard() {
     }
   }
 
+  async function handleDailySummary() {
+    setToast("Generating yesterday's summary…");
+    try {
+      const path = await invoke<string>("generate_daily_summary", { date: "" });
+      setToast(`Summary written:\n${path.split(/[\\/]/).slice(-3).join("/")}`);
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("already exists") || msg.includes("daily_summary")) {
+        setToast("Summary already exists for yesterday.");
+      } else {
+        setToast(`Summary failed: ${msg}`);
+      }
+    }
+  }
+
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
@@ -314,6 +329,11 @@ function Dashboard() {
             ⚙ Settings
           </button>
         </div>
+        <button onClick={handleDailySummary}
+          className="w-full text-xs py-2 rounded"
+          style={{ background: "var(--color-border)", color: "var(--color-muted)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
+          📋 Yesterday's Summary
+        </button>
       </div>
 
       {/* Toast */}

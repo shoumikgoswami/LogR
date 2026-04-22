@@ -49,6 +49,12 @@ impl OpenRouterClient {
         resp.map(|r| r.status().is_success()).unwrap_or(false)
     }
 
+    /// Send an arbitrary prompt to the model. Used by daily_summary and other callers
+    /// that don't have a Session to pass through build_prompt.
+    pub async fn complete(&self, prompt: &str, model: &str) -> Result<String, String> {
+        self.chat(model, prompt).await
+    }
+
     async fn chat(&self, model: &str, prompt: &str) -> Result<String, String> {
         #[derive(Serialize)]
         struct Req<'a> {

@@ -117,6 +117,41 @@ impl OllamaClient {
         self.synthesize_with_model(session, &self.config.model.clone()).await
     }
 
+    /// Send an arbitrary prompt to the model. Used by daily_summary and other callers
+    /// that don't have a Session to pass through build_prompt.
+    pub async fn complete(&self, prompt: &str, model: &str) -> Result<String, String> {
+        let req = OllamaRequest {
+            model: model.to_string(),
+            messages: vec![OllamaMessage { role: "user".into(), content: prompt.to_string() }],
+            stream: false,
+            options: OllamaOptions {
+                temperature: self.config.temperature,
+                num_predict: self.config.max_tokens,
+            },
+        };
+
+        let resp = self
+            .infer_client
+            .post(format!("{}/api/chat", self.config.base_url))
+            .json(&req)
+            .send()
+            .await
+            .map_err(|e| format!("Ollama request failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(format!("Ollama returned {}: {}", status, body));
+        }
+
+        let body: OllamaResponse = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Ollama response: {}", e))?;
+
+        Ok(body.message.content.trim().to_string())
+    }
+
     /// Synthesize using an explicit model name (picks up Settings changes without restart).
     pub async fn synthesize_with_model(&self, session: &Session, model: &str) -> Result<String, String> {
         let prompt = build_prompt(session);

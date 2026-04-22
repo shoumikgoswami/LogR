@@ -58,6 +58,7 @@ pub fn run() {
             commands::refresh_provider_status,
             commands::toggle_pause,
             commands::check_macos_permissions,
+            commands::generate_daily_summary,
         ])
         .setup(|app| {
             tray::setup_tray(&app.handle())?;
@@ -116,6 +117,23 @@ async fn start_pipeline(flush_rx: mpsc::Receiver<()>, is_paused: Arc<AtomicBool>
     });
     tokio::spawn(async move { KeyboardCollector::new().start(tx4).await });
     tokio::spawn(async move { BrowserNavigationCollector::new().start(tx5).await });
+
+    // Background: generate daily summaries for any past days that don't have one yet.
+    // Delayed 5 s so the main pipeline is fully initialised first.
+    {
+        let summary_dir = std::path::PathBuf::from(&config.notes_dir);
+        let summary_cfg = config.clone();
+        let summary_app = app.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            synthesis::daily_summary::maybe_generate_daily_summaries(
+                &summary_dir,
+                &summary_cfg,
+                &summary_app,
+            )
+            .await;
+        });
+    }
 
     let idle_timeout = config.session_idle_timeout_secs;
     let ec = event_count.clone();
