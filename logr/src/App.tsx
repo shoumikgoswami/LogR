@@ -296,6 +296,8 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Scrollable warning area — banners don't push the bottom buttons off screen */}
+      <div className="overflow-y-auto" style={{ maxHeight: 120 }}>
       {/* macOS Screen Recording permission warning */}
       {screenRecordingOk === false && (
         <div className="mx-4 mt-3 px-3 py-2 rounded text-xs"
@@ -327,60 +329,61 @@ function Dashboard() {
           Notes are being written in raw format until then.
         </div>
       )}
+      </div>{/* end scrollable warnings */}
 
-      {/* Quick note */}
-      <div className="mx-4 mt-3 rounded-lg overflow-hidden"
-        style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-        <button
-          onClick={() => setNoteOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs"
-          style={{ color: "var(--color-muted)", cursor: "pointer", background: "none", border: "none" }}>
-          <span>✏️ Quick note</span>
-          <span style={{ fontSize: 9, opacity: 0.6 }}>{noteOpen ? "▲" : "▼"}</span>
-        </button>
-        {noteOpen && (
-          <div className="px-3 pb-3 flex flex-col gap-2">
-            <textarea
-              autoFocus
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  handleSaveNote();
-                }
-              }}
-              placeholder="Type a note… (⌘↵ to save)"
-              rows={4}
-              className="w-full text-xs rounded p-2 resize-none"
-              style={{
-                background: "var(--color-bg)",
-                border: "1px solid var(--color-border)",
-                color: "#e5e7eb",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            />
-            <button
-              onClick={handleSaveNote}
-              disabled={!noteText.trim() || noteSaving}
-              className="w-full text-xs py-1.5 rounded"
-              style={{
-                background: noteText.trim() ? "var(--color-accent)" : "var(--color-border)",
-                color: noteText.trim() ? "#000" : "var(--color-muted)",
-                border: "none",
-                cursor: noteText.trim() ? "pointer" : "default",
-                fontWeight: 600,
-              }}>
-              {noteSaving ? "Saving…" : "Save Note"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Buttons */}
+      {/* Buttons — pinned to bottom */}
       <div className="flex-1" />
       <div className="px-4 pb-4 pt-2 flex flex-col gap-2">
+
+        {/* Quick note — always visible above the action buttons */}
+        <div className="rounded-lg overflow-hidden"
+          style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
+          <button
+            onClick={() => setNoteOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs"
+            style={{ color: "var(--color-muted)", cursor: "pointer", background: "none", border: "none" }}>
+            <span>✏️ Quick note</span>
+            <span style={{ fontSize: 9, opacity: 0.6 }}>{noteOpen ? "▲" : "▼"}</span>
+          </button>
+          {noteOpen && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+              <textarea
+                autoFocus
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveNote();
+                  }
+                }}
+                placeholder="Type a note… (⌘↵ to save)"
+                rows={4}
+                className="w-full text-xs rounded p-2 resize-none"
+                style={{
+                  background: "var(--color-bg)",
+                  border: "1px solid var(--color-border)",
+                  color: "#e5e7eb",
+                  outline: "none",
+                  fontFamily: "inherit",
+                }}
+              />
+              <button
+                onClick={handleSaveNote}
+                disabled={!noteText.trim() || noteSaving}
+                className="w-full text-xs py-1.5 rounded"
+                style={{
+                  background: noteText.trim() ? "var(--color-accent)" : "var(--color-border)",
+                  color: noteText.trim() ? "#000" : "var(--color-muted)",
+                  border: "none",
+                  cursor: noteText.trim() ? "pointer" : "default",
+                  fontWeight: 600,
+                }}>
+                {noteSaving ? "Saving…" : "Save Note"}
+              </button>
+            </div>
+          )}
+        </div>
         <button onClick={handleFlush}
           className="w-full text-xs py-2 rounded"
           style={{ background: "var(--color-border)", color: "var(--color-accent)", border: "1px solid var(--color-accent)", cursor: "pointer" }}>
