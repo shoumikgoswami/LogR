@@ -462,25 +462,40 @@ export default function Settings() {
     <div className="flex flex-col h-screen"
       style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
 
-      {/* Title bar — mousedown starts native window drag; close button stops propagation */}
+      {/* Title bar — data-tauri-drag-region for Windows; startDragging for macOS */}
       <div className="flex items-center justify-between px-3 py-2 shrink-0"
+        data-tauri-drag-region
         style={{ borderBottom: "1px solid var(--color-border)", cursor: "grab" }}
         onMouseDown={() => win.startDragging()}>
-        <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "var(--color-muted)" }}>
+        <span className="text-xs font-semibold tracking-widest uppercase" data-tauri-drag-region
+          style={{ color: "var(--color-muted)" }}>
           Settings
         </span>
-        <button onClick={() => win.hide()}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="flex items-center justify-center w-5 h-5 rounded"
-          style={{ color: "var(--color-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-muted)")}
-          title="Close">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => win.minimize()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="flex items-center justify-center w-5 h-5 rounded"
+            style={{ color: "var(--color-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#e5e7eb")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-muted)")}
+            title="Minimize">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <line x1="1" y1="5" x2="9" y2="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button onClick={() => win.hide()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="flex items-center justify-center w-5 h-5 rounded"
+            style={{ color: "var(--color-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-muted)")}
+            title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
