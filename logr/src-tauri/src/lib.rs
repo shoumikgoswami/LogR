@@ -59,6 +59,7 @@ pub fn run() {
             commands::toggle_pause,
             commands::check_macos_permissions,
             commands::generate_daily_summary,
+            commands::save_quick_note,
         ])
         .setup(|app| {
             tray::setup_tray(&app.handle())?;

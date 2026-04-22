@@ -252,6 +252,35 @@ pub async fn refresh_provider_status(stats: State<'_, SharedStats>) -> Result<()
     Ok(())
 }
 
+/// Save a quick manual note into today's notes folder.
+/// Returns the path of the written file.
+#[tauri::command]
+pub fn save_quick_note(content: String) -> Result<String, String> {
+    if content.trim().is_empty() {
+        return Err("Note is empty".into());
+    }
+
+    let config = load_config_sync();
+    let now = chrono::Local::now();
+    let date_dir = std::path::PathBuf::from(&config.notes_dir)
+        .join(now.format("%Y-%m-%d").to_string());
+    std::fs::create_dir_all(&date_dir).map_err(|e| e.to_string())?;
+
+    let filename = format!("{}_manual.md", now.format("%H-%M-%S"));
+    let path = date_dir.join(&filename);
+
+    let frontmatter = format!(
+        "---\ndate: {}\ntime: {}\ntype: manual\nsynthesized: false\n---\n\n",
+        now.format("%Y-%m-%d"),
+        now.format("%H:%M"),
+    );
+    let full = format!("{}{}", frontmatter, content.trim());
+
+    std::fs::write(&path, &full).map_err(|e| e.to_string())?;
+    tracing::info!("Quick note written: {:?}", path);
+    Ok(path.to_string_lossy().into_owned())
+}
+
 /// Manually trigger daily summary generation for a given date ("YYYY-MM-DD").
 /// Pass an empty string to default to yesterday.
 /// Returns the path of the written summary file.
