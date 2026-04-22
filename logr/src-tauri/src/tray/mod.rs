@@ -6,7 +6,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
-use crate::state::FlushHandle;
+use crate::state::{FlushHandle, PauseState, SharedStats};
 
 /// Build a 32×32 RGBA tray icon: cyan eye ring + pupil dot on transparent bg.
 pub fn make_tray_icon() -> Image<'static> {
@@ -128,7 +128,16 @@ pub fn setup_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
                 }
             }
             "pause_watching" => {
-                tracing::info!("Pause/resume watching toggled");
+                if let Some(pause) = app.try_state::<PauseState>() {
+                    let now_paused = pause.toggle();
+                    if let Some(stats) = app.try_state::<SharedStats>() {
+                        if let Ok(mut guard) = stats.0.lock() {
+                            guard.is_paused = now_paused;
+                            guard.is_watching = !now_paused;
+                        }
+                    }
+                    tracing::info!("Pipeline {}", if now_paused { "paused" } else { "resumed" });
+                }
             }
             _ => {}
         })

@@ -7,7 +7,10 @@ pub mod synthesis;
 pub mod tray;
 pub mod writer;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::AtomicBool,
+    {Arc, Mutex},
+};
 
 use collectors::{
     browser::BrowserNavigationCollector,
@@ -18,7 +21,7 @@ use collectors::{
     Collector,
 };
 use session::{types::RawEvent, FeedEntry, Session, SessionBuffer};
-use state::{FlushHandle, SharedStats};
+use state::{FlushHandle, PauseState, SharedStats};
 use synthesis::ollama::{OllamaClient, OllamaConfig};
 use synthesis::openrouter::OpenRouterClient;
 use tauri::Manager;
@@ -36,6 +39,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(FlushHandle(Mutex::new(None)))
         .manage(SharedStats::new())
+        .manage(PauseState::new())
         .invoke_handler(tauri::generate_handler![
             commands::save_config,
             commands::load_config,
@@ -52,6 +56,8 @@ pub fn run() {
             commands::check_openrouter,
             commands::set_provider,
             commands::refresh_provider_status,
+            commands::toggle_pause,
+            commands::check_macos_permissions,
         ])
         .setup(|app| {
             tray::setup_tray(&app.handle())?;
@@ -60,8 +66,9 @@ pub fn run() {
             *app.state::<FlushHandle>().0.lock().unwrap() = Some(flush_tx);
 
             let app_handle = app.handle().clone();
+            let pause_arc = app.state::<PauseState>().arc();
             tauri::async_runtime::spawn(async move {
-                start_pipeline(flush_rx, app_handle).await;
+                start_pipeline(flush_rx, pause_arc, app_handle).await;
             });
 
             Ok(())
@@ -70,7 +77,7 @@ pub fn run() {
         .expect("error while running LogR");
 }
 
-async fn start_pipeline(flush_rx: mpsc::Receiver<()>, app: tauri::AppHandle) {
+async fn start_pipeline(flush_rx: mpsc::Receiver<()>, is_paused: Arc<AtomicBool>, app: tauri::AppHandle) {
     let config = commands::load_config_sync();
 
     let (raw_tx, raw_rx) = mpsc::channel::<RawEvent>(256);
@@ -114,7 +121,7 @@ async fn start_pipeline(flush_rx: mpsc::Receiver<()>, app: tauri::AppHandle) {
     let ec = event_count.clone();
     let vc = vision_count.clone();
     tokio::spawn(async move {
-        run_session_buffer(raw_rx, flush_rx, session_tx, feed_tx, idle_timeout, ec, vc).await;
+        run_session_buffer(raw_rx, flush_rx, session_tx, feed_tx, idle_timeout, ec, vc, is_paused).await;
     });
 
     tokio::spawn(async move {
@@ -139,7 +146,9 @@ async fn run_session_buffer(
     idle_timeout_secs: u64,
     event_count: Arc<Mutex<usize>>,
     vision_count: Arc<Mutex<u32>>,
+    is_paused: Arc<AtomicBool>,
 ) {
+    use std::sync::atomic::Ordering;
     let mut buffer = SessionBuffer::new(session_tx, feed_tx, idle_timeout_secs, event_count, vision_count);
     let mut idle_tick = interval(Duration::from_secs(IDLE_CHECK_SECS));
     idle_tick.tick().await;
@@ -147,6 +156,10 @@ async fn run_session_buffer(
     loop {
         tokio::select! {
             Some(event) = raw_rx.recv() => {
+                if is_paused.load(Ordering::Relaxed) {
+                    tracing::debug!("[pipeline] paused — dropping event {:?}", event.event_type);
+                    continue;
+                }
                 buffer.process(event).await;
             }
             _ = idle_tick.tick() => {

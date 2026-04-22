@@ -15,6 +15,7 @@ interface PipelineStats {
   ollama_running: boolean;
   model_available: boolean;
   is_watching: boolean;
+  is_paused: boolean;
   last_note_path: string | null;
 }
 
@@ -47,6 +48,7 @@ function StatRow({ label, value, accent }: { label: string; value: string; accen
 
 function Dashboard() {
   const [stats, setStats] = useState<PipelineStats | null>(null);
+  const [screenRecordingOk, setScreenRecordingOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     // Debounce the hide so a brief focus-away (e.g. during the tray-click →
@@ -84,6 +86,13 @@ function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
+  // One-time check for macOS Screen Recording permission
+  useEffect(() => {
+    invoke<boolean>("check_macos_permissions")
+      .then(setScreenRecordingOk)
+      .catch(() => setScreenRecordingOk(true)); // non-macOS always passes
+  }, []);
+
   async function handleFlush() {
     if (stats && stats.events_in_session === 0) {
       setToast("No events to flush — keep using your computer first.");
@@ -94,6 +103,15 @@ function Dashboard() {
       setToast(`Flushing ${stats?.events_in_session ?? 0} events — note will appear shortly.`);
     } catch (e) {
       setToast(`Flush failed: ${e}`);
+    }
+  }
+
+  async function handleTogglePause() {
+    try {
+      const nowPaused = await invoke<boolean>("toggle_pause");
+      setStats((s) => s ? { ...s, is_paused: nowPaused, is_watching: !nowPaused } : s);
+    } catch (e) {
+      setToast("Failed to toggle pause: " + e);
     }
   }
 
@@ -192,11 +210,27 @@ function Dashboard() {
 
       {/* Status panel */}
       <div className="mx-4 rounded-lg px-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-        <div className="flex items-center gap-2 py-2" style={{ borderBottom: "1px solid var(--color-border)" }}>
-          <Dot color={stats ? "#22c55e" : "var(--color-muted)"} />
-          <span className="text-xs font-medium" style={{ color: "#e5e7eb" }}>
-            {stats ? "Watching" : "Starting…"}
-          </span>
+        <div className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--color-border)" }}>
+          <div className="flex items-center gap-2">
+            <Dot color={!stats ? "var(--color-muted)" : stats.is_paused ? "#f59e0b" : "#22c55e"} />
+            <span className="text-xs font-medium" style={{ color: "#e5e7eb" }}>
+              {!stats ? "Starting…" : stats.is_paused ? "Paused" : "Watching"}
+            </span>
+          </div>
+          {stats && (
+            <button
+              onClick={handleTogglePause}
+              className="text-xs px-2 py-0.5 rounded"
+              style={{
+                background: "var(--color-border)",
+                color: stats.is_paused ? "#22c55e" : "#f59e0b",
+                border: `1px solid ${stats.is_paused ? "#22c55e" : "#f59e0b"}`,
+                cursor: "pointer",
+              }}
+              title={stats.is_paused ? "Resume watching" : "Pause watching"}>
+              {stats.is_paused ? "▶ Resume" : "⏸ Pause"}
+            </button>
+          )}
         </div>
         {/* Clickable provider row — tap to switch */}
         <div className="flex items-center justify-between py-1.5"
@@ -227,6 +261,15 @@ function Dashboard() {
             title={stats?.last_note_path ?? ""}>{lastNote}</span>
         </div>
       </div>
+
+      {/* macOS Screen Recording permission warning */}
+      {screenRecordingOk === false && (
+        <div className="mx-4 mt-3 px-3 py-2 rounded text-xs"
+          style={{ background: "#1e1a2e", border: "1px solid #7c3aed", color: "#c4b5fd" }}>
+          ⚠ Screen Recording permission not granted. LogR can't track windows or take vision snapshots.
+          {" "}<strong>System Settings → Privacy &amp; Security → Screen Recording → enable LogR</strong>, then relaunch.
+        </div>
+      )}
 
       {/* Provider warning */}
       {stats && !stats.ollama_running && stats.provider === "ollama" && (

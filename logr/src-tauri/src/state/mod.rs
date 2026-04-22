@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use tokio::sync::mpsc;
 
@@ -92,6 +95,29 @@ impl AppState {
 /// Held in Tauri managed state so tray/commands can trigger a session flush.
 pub struct FlushHandle(pub Mutex<Option<mpsc::Sender<()>>>);
 
+/// Whether the pipeline is currently paused. Shared between tray, commands, and session buffer.
+pub struct PauseState(pub Arc<AtomicBool>);
+
+impl PauseState {
+    pub fn new() -> Self {
+        Self(Arc::new(AtomicBool::new(false)))
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// Toggle and return the new paused state.
+    pub fn toggle(&self) -> bool {
+        let was = self.0.fetch_xor(true, Ordering::Relaxed);
+        !was // new state is the opposite of old
+    }
+
+    pub fn arc(&self) -> Arc<AtomicBool> {
+        self.0.clone()
+    }
+}
+
 /// Live pipeline stats readable from the dashboard.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PipelineStats {
@@ -108,6 +134,7 @@ pub struct PipelineStats {
     /// The configured model has been pulled / is ready.
     pub model_available: bool,
     pub is_watching: bool,
+    pub is_paused: bool,
     pub last_note_path: Option<String>,
 }
 
@@ -124,6 +151,7 @@ impl SharedStats {
             ollama_running: false,
             model_available: false,
             is_watching: true,
+            is_paused: false,
             last_note_path: None,
         }))
     }

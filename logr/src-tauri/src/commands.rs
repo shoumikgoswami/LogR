@@ -1,5 +1,5 @@
 use tauri::State;
-use crate::state::{DriftlogConfig, FlushHandle, PipelineStats, SharedStats};
+use crate::state::{DriftlogConfig, FlushHandle, PauseState, PipelineStats, SharedStats};
 use crate::synthesis::openrouter::list_openrouter_models as or_list_models;
 
 pub fn load_config_sync() -> DriftlogConfig {
@@ -250,6 +250,39 @@ pub async fn refresh_provider_status(stats: State<'_, SharedStats>) -> Result<()
         guard.model_available = model_ok;
     }
     Ok(())
+}
+
+/// Toggle the pipeline pause state. Returns the new paused state (true = paused).
+#[tauri::command]
+pub fn toggle_pause(
+    pause: State<'_, PauseState>,
+    stats: State<'_, SharedStats>,
+) -> bool {
+    let now_paused = pause.toggle();
+    if let Ok(mut guard) = stats.0.lock() {
+        guard.is_paused = now_paused;
+        guard.is_watching = !now_paused;
+    }
+    tracing::info!("Pipeline {}", if now_paused { "paused" } else { "resumed" });
+    now_paused
+}
+
+/// Check whether the OS-level permissions needed for event collection are granted.
+/// On macOS, returns false if Screen Recording permission is not granted.
+/// On other platforms always returns true.
+#[tauri::command]
+pub fn check_macos_permissions() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // CGPreflightScreenCaptureAccess returns true if Screen Recording is allowed.
+        // CoreGraphics is always linked on macOS — no extra dependency needed.
+        extern "C" {
+            fn CGPreflightScreenCaptureAccess() -> bool;
+        }
+        unsafe { CGPreflightScreenCaptureAccess() }
+    }
+    #[cfg(not(target_os = "macos"))]
+    { true }
 }
 
 /// Check that the OpenRouter API key is valid and the endpoint is reachable.
