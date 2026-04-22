@@ -213,14 +213,15 @@ function Dashboard() {
     <div className="flex flex-col h-screen select-none"
       style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
 
-      {/* Title bar */}
+      {/* Title bar — mousedown starts native window drag; close button stops propagation */}
       <div className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: "1px solid var(--color-border)" }}
-        data-tauri-drag-region>
+        style={{ borderBottom: "1px solid var(--color-border)", cursor: "grab" }}
+        onMouseDown={() => win.startDragging()}>
         <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "var(--color-muted)" }}>
           LogR
         </span>
         <button onClick={() => win.hide()}
+          onMouseDown={(e) => e.stopPropagation()}
           className="flex items-center justify-center w-5 h-5 rounded"
           style={{ color: "var(--color-muted)" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
